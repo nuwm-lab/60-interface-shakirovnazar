@@ -1,117 +1,211 @@
 using System;
 using System.Text;
 
-namespace AdapterPattern
+namespace AdapterMatrixLab
 {
-    // ---------------------------------------------------------------------------
-    // 1. Target (Цільовий інтерфейс)
-    // Це інтерфейс, який очікує наш клієнтський код (нова система).
-    // ---------------------------------------------------------------------------
-    public interface IDeliveryService
+    // =========================================================================
+    // 1. Target (Ціль)
+    // Абстрактний клас, який визначає інтерфейс для клієнтського коду.
+    // Клієнт (Main) вміє працювати тільки з цим типом.
+    // =========================================================================
+    public abstract class MatrixBase
     {
-        void DeliverData(string itemId, double weightKg);
-        double CalculateDeliveryCost(double distanceKm);
+        public string Name { get; protected set; }
+
+        // Абстрактні методи, які мають бути у всіх "сумісних" матриць
+        public abstract void Fill(Random rnd);
+        public abstract double FindMin();
+        public virtual void Display()
+        {
+            Console.WriteLine($"\n--- {Name} ---");
+        }
     }
 
-    // ---------------------------------------------------------------------------
+    // =========================================================================
+    // Конкретна реалізація Target
+    // Звичайна двовимірна матриця 3x3
+    // =========================================================================
+    public class Matrix2D : MatrixBase
+    {
+        // Константи розмірності
+        private const int Size = 3;
+        
+        // Приватне поле (інкапсуляція)
+        private readonly double[,] _data;
+
+        public Matrix2D()
+        {
+            Name = "Матриця 2D [3x3]";
+            _data = new double[Size, Size];
+        }
+
+        public override void Fill(Random rnd)
+        {
+            for (int i = 0; i < Size; i++)
+            {
+                for (int j = 0; j < Size; j++)
+                {
+                    // Випадкові числа від -10.0 до 10.0
+                    _data[i, j] = Math.Round(rnd.NextDouble() * 20 - 10, 2);
+                }
+            }
+        }
+
+        public override double FindMin()
+        {
+            double min = double.MaxValue;
+            foreach (var val in _data)
+            {
+                if (val < min) min = val;
+            }
+            return min;
+        }
+
+        public override void Display()
+        {
+            base.Display();
+            for (int i = 0; i < Size; i++)
+            {
+                Console.Write("|");
+                for (int j = 0; j < Size; j++)
+                {
+                    Console.Write($"{_data[i, j],7:F2} ");
+                }
+                Console.WriteLine("|");
+            }
+        }
+    }
+
+    // =========================================================================
     // 2. Adaptee (Адаптовуваний клас)
-    // Сторонній клас (стара система або бібліотека), який має інший інтерфейс
-    // Наприклад, працює з фунтами та милями, і методи називаються інакше
-    // ---------------------------------------------------------------------------
-    public class ExternalLogisticsService
+    // Тривимірна матриця 3x3x3.
+    // Вона має іншу структуру даних та інші назви методів.
+    // =========================================================================
+    public class Matrix3D
     {
-        // Відправка товару (вага в фунтах - lbs)
-        public void ShipItem(string itemName, double weightLbs)
+        private const int Size = 3;
+        private readonly double[,,] _cubeData;
+
+        public Matrix3D()
         {
-            Console.WriteLine($"[ExternalLogistics] Item '{itemName}' shipped. Weight: {weightLbs:F2} lbs.");
+            _cubeData = new double[Size, Size, Size];
         }
 
-        // Розрахунок вартості (дистанція в милях - miles)
-        // Тариф: 0.5$ за милю
-        public double GetCostInUsd(double miles)
+        // Метод має іншу назву, ніж у Target (FillVolume замість Fill)
+        public void FillVolume(Random rnd)
         {
-            return miles * 0.5;
+            for (int z = 0; z < Size; z++)
+                for (int y = 0; y < Size; y++)
+                    for (int x = 0; x < Size; x++)
+                        _cubeData[z, y, x] = Math.Round(rnd.NextDouble() * 20 - 10, 2);
+            
+            Console.WriteLine("[Matrix3D System] Об'єм заповнено.");
+        }
+
+        // Специфічний метод пошуку мінімуму в 3D
+        public double GetMinFromVolume()
+        {
+            double min = double.MaxValue;
+            foreach (var val in _cubeData)
+            {
+                if (val < min) min = val;
+            }
+            return min;
+        }
+
+        // Специфічний метод виводу (пошарово)
+        public void ShowLayers()
+        {
+            for (int z = 0; z < Size; z++)
+            {
+                Console.WriteLine($"Шар Z = {z}:");
+                for (int y = 0; y < Size; y++)
+                {
+                    Console.Write("  ");
+                    for (int x = 0; x < Size; x++)
+                    {
+                        Console.Write($"{_cubeData[z, y, x],7:F2} ");
+                    }
+                    Console.WriteLine();
+                }
+            }
         }
     }
 
-    // ---------------------------------------------------------------------------
+    // =========================================================================
     // 3. Adapter (Адаптер)
-    // Реалізує цільовий інтерфейс і використовує об'єкт Adaptee.
-    // Конвертує дані (Кг -> Фунти, Км -> Милі).
-    // ---------------------------------------------------------------------------
-    public class LogisticsAdapter : IDeliveryService
+    // Дозволяє використовувати Matrix3D там, де очікується MatrixBase.
+    // =========================================================================
+    public class Matrix3DAdapter : MatrixBase
     {
-        private readonly ExternalLogisticsService _externalService;
+        // Посилання на адаптовуваний об'єкт
+        private readonly Matrix3D _adaptee;
 
-        // Конструктор приймає адаптовуваний об'єкт
-        public LogisticsAdapter(ExternalLogisticsService externalService)
+        public Matrix3DAdapter(Matrix3D existingMatrix3D)
         {
-            _externalService = externalService;
+            Name = "Адаптер для 3D Матриці";
+            _adaptee = existingMatrix3D;
         }
 
-        public void DeliverData(string itemId, double weightKg)
+        // Адаптуємо метод Fill -> FillVolume
+        public override void Fill(Random rnd)
         {
-            // Конвертація: 1 кг = 2.20462 фунтів
-            double weightLbs = weightKg * 2.20462;
-            
-            Console.WriteLine($"\n>> Адаптер: Конвертуємо {weightKg} кг -> {weightLbs:F2} lbs");
-            
-            // Виклик методу старої системи
-            _externalService.ShipItem(itemId, weightLbs);
+            _adaptee.FillVolume(rnd);
         }
 
-        public double CalculateDeliveryCost(double distanceKm)
+        // Адаптуємо метод FindMin -> GetMinFromVolume
+        public override double FindMin()
         {
-            // Конвертація: 1 км = 0.621371 миль
-            double miles = distanceKm * 0.621371;
+            return _adaptee.GetMinFromVolume();
+        }
 
-            Console.WriteLine($">> Адаптер: Конвертуємо {distanceKm} км -> {miles:F2} миль");
-
-            // Отримуємо ціну в доларах
-            double costUsd = _externalService.GetCostInUsd(miles);
-
-            // Наприклад, конвертуємо в гривні (курс 41.5)
-            double costUah = costUsd * 41.5;
-            
-            Console.WriteLine($">> Адаптер: Ціна ${costUsd:F2} -> {costUah:F2} грн");
-
-            return costUah;
+        // Адаптуємо Display -> ShowLayers
+        public override void Display()
+        {
+            base.Display();
+            Console.WriteLine("(Відображення через адаптер...)");
+            _adaptee.ShowLayers();
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // 4. Client (Клієнт)
-    // Працює з інтерфейсом IDeliveryService, не знаючи про ExternalLogisticsService.
-    // ---------------------------------------------------------------------------
+    // =========================================================================
+    // 4. Client (Головна програма)
+    // =========================================================================
     class Program
     {
         static void Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
-            Console.WriteLine("--- Лабораторна робота №6. Патерн Адаптер (Variant 6) ---\n");
+            Random rnd = new Random();
 
-            // Сценарій: У нас є товар і відстань
-            string product = "Ноутбук Gaming X";
-            double weightKg = 2.5;   // кг
-            double distanceKm = 100; // км
+            Console.WriteLine("=== Лабораторна робота №6: Патерн Адаптер ===");
+            Console.WriteLine("Демонстрація роботи з 2D та 3D матрицями через єдиний інтерфейс.\n");
 
-            Console.WriteLine("1. Спроба використання старої системи напряму (незручно):");
-            ExternalLogisticsService oldService = new ExternalLogisticsService();
-            // Нам довелося б вручну переводити кг у фунти тут...
-            oldService.ShipItem(product, weightKg * 2.20462); 
+            // Клієнтський код працює з абстракцією MatrixBase
+            MatrixBase[] matrices = new MatrixBase[2];
 
-            Console.WriteLine("\n---------------------------------------------------------");
-            Console.WriteLine("2. Використання через Адаптер (зручно):");
+            // 1. Створюємо стандартну 2D матрицю
+            matrices[0] = new Matrix2D();
 
-            // Створюємо адаптер, передаючи йому стару службу
-            IDeliveryService deliverySystem = new LogisticsAdapter(oldService);
+            // 2. Створюємо 3D матрицю і обгортаємо її в Адаптер
+            Matrix3D hugeMatrix = new Matrix3D();
+            matrices[1] = new Matrix3DAdapter(hugeMatrix);
 
-            // Клієнтський код просто викликає методи у зрозумілих одиницях (кг, км)
-            deliverySystem.DeliverData(product, weightKg);
-            
-            double price = deliverySystem.CalculateDeliveryCost(distanceKm);
-            Console.WriteLine($"\nФінальна вартість доставки: {price:F2} грн");
+            // Основний цикл обробки (поліморфізм + адаптер)
+            foreach (var matrix in matrices)
+            {
+                // Виклик Fill() для 3D матриці пройде через Адаптер і викличе FillVolume()
+                matrix.Fill(rnd);
+                
+                matrix.Display();
 
+                // Виклик FindMin() для 3D матриці пройде через Адаптер і викличе GetMinFromVolume()
+                double min = matrix.FindMin();
+                Console.WriteLine($"\n>> МІНІМАЛЬНИЙ ЕЛЕМЕНТ: {min:F2}");
+                Console.WriteLine(new string('-', 40));
+            }
+
+            Console.WriteLine("\nРоботу завершено.");
             Console.ReadKey();
         }
     }
