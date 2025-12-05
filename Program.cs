@@ -1,36 +1,93 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace AdapterMatrixLab
 {
     // =========================================================================
-    // 1. Target (Ціль)
-    // Абстрактний клас, який визначає інтерфейс для клієнтського коду.
-    // Клієнт (Main) вміє працювати тільки з цим типом.
+    // I. INTERFACES (Виконання вимоги про наявність інтерфейсів)
     // =========================================================================
-    public abstract class MatrixBase
+
+    /// <summary>
+    /// Основний інтерфейс для роботи з матрицями.
+    /// </summary>
+    public interface IMatrixOperations
+    {
+        void Fill(Random random);
+        double FindMin();
+        void Display();
+    }
+
+    /// <summary>
+    /// Додатковий інтерфейс для демонстрації (Завдання з огляду).
+    /// </summary>
+    public interface ILoggable
+    {
+        void LogInfo(string message);
+    }
+
+    // =========================================================================
+    // II. ABSTRACT TARGET
+    // =========================================================================
+
+    /// <summary>
+    /// Абстрактний базовий клас. Реалізує інтерфейс та IDisposable.
+    /// </summary>
+    public abstract class MatrixBase : IMatrixOperations, IDisposable
     {
         public string Name { get; protected set; }
+        private bool _disposed = false;
 
-        // Абстрактні методи, які мають бути у всіх "сумісних" матриць
-        public abstract void Fill(Random rnd);
+        // Реалізація контракту інтерфейсу IMatrixOperations
+        public abstract void Fill(Random random);
         public abstract double FindMin();
+
         public virtual void Display()
         {
             Console.WriteLine($"\n--- {Name} ---");
         }
+
+        // --- Реалізація IDisposable (Вимога про деструктори/очищення) ---
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Тут звільняємо керовані ресурси (якщо є)
+                }
+                // Тут звільняємо некеровані ресурси (симуляція)
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine($"[System] Ресурс '{Name}' звільнено (Dispose).");
+                Console.ResetColor();
+                _disposed = true;
+            }
+        }
+
+        // Деструктор (Фіналізатор) - додано на вимогу завдання
+        ~MatrixBase()
+        {
+            Dispose(false);
+        }
     }
 
     // =========================================================================
-    // Конкретна реалізація Target
-    // Звичайна двовимірна матриця 3x3
+    // III. CONCRETE CLASS (2D Matrix)
     // =========================================================================
-    public class Matrix2D : MatrixBase
+
+    /// <summary>
+    /// Звичайна двовимірна матриця.
+    /// Реалізує логування прямо в консоль.
+    /// </summary>
+    public class Matrix2D : MatrixBase, ILoggable
     {
-        // Константи розмірності
         private const int Size = 3;
-        
-        // Приватне поле (інкапсуляція)
         private readonly double[,] _data;
 
         public Matrix2D()
@@ -39,16 +96,16 @@ namespace AdapterMatrixLab
             _data = new double[Size, Size];
         }
 
-        public override void Fill(Random rnd)
+        public override void Fill(Random random)
         {
             for (int i = 0; i < Size; i++)
             {
                 for (int j = 0; j < Size; j++)
                 {
-                    // Випадкові числа від -10.0 до 10.0
-                    _data[i, j] = Math.Round(rnd.NextDouble() * 20 - 10, 2);
+                    _data[i, j] = Math.Round(random.NextDouble() * 20 - 10, 2);
                 }
             }
+            LogInfo("Матрицю 2D заповнено випадковими числами.");
         }
 
         public override double FindMin()
@@ -74,13 +131,23 @@ namespace AdapterMatrixLab
                 Console.WriteLine("|");
             }
         }
+
+        // Реалізація ILoggable: просте повідомлення
+        public void LogInfo(string message)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"[LOG 2D]: {message}");
+            Console.ResetColor();
+        }
     }
 
     // =========================================================================
-    // 2. Adaptee (Адаптовуваний клас)
-    // Тривимірна матриця 3x3x3.
-    // Вона має іншу структуру даних та інші назви методів.
+    // IV. ADAPTEE (Адаптовуваний клас)
     // =========================================================================
+
+    /// <summary>
+    /// Сторонній клас 3D матриці з іншим інтерфейсом.
+    /// </summary>
     public class Matrix3D
     {
         private const int Size = 3;
@@ -91,18 +158,14 @@ namespace AdapterMatrixLab
             _cubeData = new double[Size, Size, Size];
         }
 
-        // Метод має іншу назву, ніж у Target (FillVolume замість Fill)
-        public void FillVolume(Random rnd)
+        public void FillVolume(Random random)
         {
             for (int z = 0; z < Size; z++)
                 for (int y = 0; y < Size; y++)
                     for (int x = 0; x < Size; x++)
-                        _cubeData[z, y, x] = Math.Round(rnd.NextDouble() * 20 - 10, 2);
-            
-            Console.WriteLine("[Matrix3D System] Об'єм заповнено.");
+                        _cubeData[z, y, x] = Math.Round(random.NextDouble() * 20 - 10, 2);
         }
 
-        // Специфічний метод пошуку мінімуму в 3D
         public double GetMinFromVolume()
         {
             double min = double.MaxValue;
@@ -113,7 +176,6 @@ namespace AdapterMatrixLab
             return min;
         }
 
-        // Специфічний метод виводу (пошарово)
         public void ShowLayers()
         {
             for (int z = 0; z < Size; z++)
@@ -133,13 +195,17 @@ namespace AdapterMatrixLab
     }
 
     // =========================================================================
-    // 3. Adapter (Адаптер)
-    // Дозволяє використовувати Matrix3D там, де очікується MatrixBase.
+    // V. ADAPTER
     // =========================================================================
-    public class Matrix3DAdapter : MatrixBase
+
+    /// <summary>
+    /// Адаптер, що узгоджує Matrix3D з IMatrixOperations.
+    /// Реалізує логування у внутрішній буфер (симуляція).
+    /// </summary>
+    public class Matrix3DAdapter : MatrixBase, ILoggable
     {
-        // Посилання на адаптовуваний об'єкт
         private readonly Matrix3D _adaptee;
+        private readonly List<string> _logBuffer = new List<string>(); // Імітація файлу/буфера
 
         public Matrix3DAdapter(Matrix3D existingMatrix3D)
         {
@@ -147,65 +213,92 @@ namespace AdapterMatrixLab
             _adaptee = existingMatrix3D;
         }
 
-        // Адаптуємо метод Fill -> FillVolume
-        public override void Fill(Random rnd)
+        public override void Fill(Random random)
         {
-            _adaptee.FillVolume(rnd);
+            _adaptee.FillVolume(random);
+            LogInfo("3D Об'єм заповнено через адаптер.");
         }
 
-        // Адаптуємо метод FindMin -> GetMinFromVolume
         public override double FindMin()
         {
             return _adaptee.GetMinFromVolume();
         }
 
-        // Адаптуємо Display -> ShowLayers
         public override void Display()
         {
             base.Display();
             Console.WriteLine("(Відображення через адаптер...)");
             _adaptee.ShowLayers();
+            
+            // Виводимо накопичені логи, щоб показати, що буфер працює
+            PrintBuffer();
+        }
+
+        // Реалізація ILoggable: запис у "буфер" замість консолі
+        public void LogInfo(string message)
+        {
+            string logEntry = $"[BUFFER LOG 3D] {DateTime.Now:T}: {message}";
+            _logBuffer.Add(logEntry);
+        }
+
+        private void PrintBuffer()
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("--- Вміст лог-буфера адаптера ---");
+            foreach (var log in _logBuffer)
+            {
+                Console.WriteLine(log);
+            }
+            Console.ResetColor();
+        }
+
+        // Перевизначення Dispose для очищення буфера (демонстрація)
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _logBuffer.Clear();
+            }
+            base.Dispose(disposing);
         }
     }
 
     // =========================================================================
-    // 4. Client (Головна програма)
+    // VI. CLIENT
     // =========================================================================
-    class Program
+
+    internal static class Program
     {
         static void Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
-            Random rnd = new Random();
+            Random random = new Random();
 
-            Console.WriteLine("=== Лабораторна робота №6: Патерн Адаптер ===");
-            Console.WriteLine("Демонстрація роботи з 2D та 3D матрицями через єдиний інтерфейс.\n");
+            Console.WriteLine("=== Лабораторна: Adapter + Interfaces + Disposable ===\n");
 
-            // Клієнтський код працює з абстракцією MatrixBase
-            MatrixBase[] matrices = new MatrixBase[2];
+            // Використовуємо List<MatrixBase>, щоб показати роботу Dispose у циклі
+            var matrices = new List<MatrixBase>
+            {
+                new Matrix2D(),
+                new Matrix3DAdapter(new Matrix3D())
+            };
 
-            // 1. Створюємо стандартну 2D матрицю
-            matrices[0] = new Matrix2D();
-
-            // 2. Створюємо 3D матрицю і обгортаємо її в Адаптер
-            Matrix3D hugeMatrix = new Matrix3D();
-            matrices[1] = new Matrix3DAdapter(hugeMatrix);
-
-            // Основний цикл обробки (поліморфізм + адаптер)
             foreach (var matrix in matrices)
             {
-                // Виклик Fill() для 3D матриці пройде через Адаптер і викличе FillVolume()
-                matrix.Fill(rnd);
-                
+                // 1. Робота через інтерфейс IMatrixOperations (успадкований в MatrixBase)
+                matrix.Fill(random);
                 matrix.Display();
 
-                // Виклик FindMin() для 3D матриці пройде через Адаптер і викличе GetMinFromVolume()
                 double min = matrix.FindMin();
-                Console.WriteLine($"\n>> МІНІМАЛЬНИЙ ЕЛЕМЕНТ: {min:F2}");
+                Console.WriteLine($"\n>> Min: {min:F2}");
                 Console.WriteLine(new string('-', 40));
+
+                // 2. Явний виклик Dispose (або можна було використовувати блок using при створенні)
+                matrix.Dispose();
+                Console.WriteLine();
             }
 
-            Console.WriteLine("\nРоботу завершено.");
+            Console.WriteLine("Натисніть будь-яку клавішу для завершення...");
             Console.ReadKey();
         }
     }
